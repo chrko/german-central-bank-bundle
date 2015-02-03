@@ -155,6 +155,8 @@ class ImportCommand
             $progressBar->advance();
         }
         $progressBar->finish();
+        $entityManger->flush();
+        $entityManger->clear();
 
         $output->writeln('');
 
