@@ -39,10 +39,19 @@ class ImportCommand
         }
         $output->writeln('<info>File found!</info>');
 
-        $output->writeln('<info>Opening file:</info> ' . $fileReal . '');
-        $fileContents = file($file);
-        $output->writeln('<info>Found</info> ' . $lines = count($fileContents) . ' <info>lines in the file.</info>');
+        mb_internal_encoding('UTF-8');
+        $encodingList = mb_detect_order();
+        if (!in_array('ISO-8859-1', $encodingList)) {
+            array_push($encodingList, 'ISO-8859-1');
+            mb_detect_order($encodingList);
+        }
+        $fileEncoding = mb_detect_encoding($fileContents = file_get_contents($file));
 
+        $output->writeln('<info>Opening file:</info> ' . $fileReal . '');
+        $fileContentArray = explode("\n", $fileContents);
+        $output->writeln(
+            '<info>Found</info> ' . $lines = count($fileContentArray) . ' <info>lines in the file.</info>'
+        );
 
         $questionHelper = $this->getHelper('question');
         $output->writeln('');
@@ -112,8 +121,17 @@ class ImportCommand
         $progressBar->setRedrawFrequency($redrawFrequency = 100);
         $progressBar->start($lines);
         $validationErrors = [];
-        foreach ($fileContents as $line) {
+        foreach ($fileContentArray as $row => $line) {
+            $line = trim($line);
+            if (empty($line)) {
+                continue;
+            }
+
             $bank = new Bank();
+
+            if ($fileEncoding != mb_internal_encoding()) {
+                $line = mb_convert_encoding($line, mb_internal_encoding(), $fileEncoding);
+            }
 
             foreach ($map as $fieldName => $substr) {
                 $method = 'set' . ucfirst($fieldName);
@@ -124,6 +142,7 @@ class ImportCommand
 
             if (count($errors) > 0) {
                 $validationErrors[] = (string)$errors;
+                $validationErrors[] = $row . $line;
             } else {
                 $entityManger->persist($bank);
             }
